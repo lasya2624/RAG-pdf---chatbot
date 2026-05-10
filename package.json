@@ -45,4 +45,7 @@
     "tailwindcss": "^4",
     "typescript": "^5"
   }
+  ,"scripts": {
+  "vercel-install": "npm install --legacy-peer-deps"
+}
 }
