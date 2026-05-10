@@ -46,6 +46,8 @@
     "typescript": "^5"
   }
   ,"scripts": {
-  "vercel-install": "npm install --legacy-peer-deps"
+  "dev": "next dev",
+  "build": "next build",
+  "start": "next start"
 }
 }
