@@ -35,3 +35,10 @@ class LocalHuggingFaceEmbeddings extends Embeddings {
 }
 
 export const localEmbeddings = new LocalHuggingFaceEmbeddings();
+
+// Export a native ChromaDB embedding function wrapper to avoid warnings
+export const chromaEmbeddingFunction = {
+  generate: async (texts: string[]) => {
+    return await localEmbeddings.embedDocuments(texts);
+  }
+};

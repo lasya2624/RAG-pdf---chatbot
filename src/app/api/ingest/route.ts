@@ -41,20 +41,30 @@ export async function POST(req: Request) {
 
     const chromaUrl = process.env.CHROMA_URL || "http://localhost:8000";
     
+    const { ChromaClient } = await import('chromadb');
+    const { chromaEmbeddingFunction } = await import('@/lib/embeddings');
+    
     // ✅ FIX: Use ChromaClient to delete collection properly
+    const client = new ChromaClient({ path: chromaUrl });
     try {
-      const { ChromaClient } = await import('chromadb');
-      const client = new ChromaClient({ path: chromaUrl });
       await client.deleteCollection({ name: "documents" });
       console.log("Deleted existing collection 'documents'");
     } catch (e: any) {
       console.log("Collection check/delete: " + (e.message || "No existing collection found"));
     }
 
-    // ✅ Create new collection with documents
-    const vectorStore = await Chroma.fromDocuments(docs, localEmbeddings, {
-      collectionName: "documents",
-      url: chromaUrl,
+    // ✅ Create new collection natively with explicit embedding function to fix warning
+    const collection = await client.createCollection({
+      name: "documents",
+      embeddingFunction: chromaEmbeddingFunction
+    });
+
+    const textsToEmbed = docs.map(doc => doc.pageContent);
+    const docIds = docs.map((_, i) => `chunk_${i}`);
+
+    await collection.add({
+      ids: docIds,
+      documents: textsToEmbed,
     });
 
     console.log("Ingestion complete.");

@@ -17,17 +17,38 @@ const queryDocumentsTool = tool({
   execute: async ({ query }) => {
     try {
       console.log(`Querying documents for: "${query}" using local embeddings...`);
+      
+      if (!query || typeof query !== 'string' || query.trim() === '') {
+        console.warn("Model provided an empty or undefined query.");
+        return { context: "Error: You must provide a specific search query string to use this tool. Please try calling the tool again with a detailed query parameter." };
+      }
 
-      const vectorStore = await Chroma.fromExistingCollection(localEmbeddings, {
-        collectionName: "documents",
-        url: process.env.CHROMA_URL || "http://localhost:8000",
-      });
+      const { ChromaClient } = await import('chromadb');
+      const { chromaEmbeddingFunction } = await import('@/lib/embeddings');
+      const client = new ChromaClient({ path: process.env.CHROMA_URL || "http://localhost:8000" });
+      
+      try {
+        const collection = await client.getCollection({ 
+          name: "documents",
+          embeddingFunction: chromaEmbeddingFunction
+        });
+        const queryEmbedding = await localEmbeddings.embedQuery(query);
+        
+        const results = await collection.query({
+          queryEmbeddings: [queryEmbedding], // Explicitly wrap in array for Chroma 3.x
+          nResults: 3,
+        });
 
-      const results = await vectorStore.similaritySearch(query, 3);
-      const context = results.map(r => r.pageContent).join('\n---\n');
-
-      console.log(`Found ${results.length} relevant context chunks.`);
-      return { context };
+        // The documents are returned as a 2D array: documents[queryIndex][resultIndex]
+        const relevantDocs = results.documents[0] || [];
+        const context = relevantDocs.join('\n---\n');
+        
+        console.log(`Found ${relevantDocs.length} relevant context chunks.`);
+        return { context: context || "No relevant information found." };
+      } catch (e: any) {
+        console.error("Chroma collection error:", e.message);
+        return { context: "Document store is unavailable or empty." };
+      }
     } catch (error) {
       console.error("Retrieval error:", error);
       return { context: "No documents have been uploaded yet, or the document store is unavailable." };
